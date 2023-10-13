@@ -15,28 +15,37 @@ export class TasksService {
         private taskRepository: MongoRepository<Task>,
     ) {}
 
-    // getAllTasks(): Task[] {
-    //     return this.tasks;
-    // }
+    async getTasks(filterDto: GetTasksFilterDto): Promise<Task[]> {
+        const { status, search } = filterDto;
 
-    // getTasksWithFilters(filterDto: GetTasksFilterDto): Task[] {
-    //     const { status, search } = filterDto;
+        // QueryBuilder is a way to build queries using a more object-oriented approach
+        // However it is not supported by MongoDB :(
+        // const query = this.taskRepository.createQueryBuilder('task');
 
-    //     let tasks = this.getAllTasks();
+        // if (status) {
+        //     query.andWhere('task.status = :status', { status });
+        // }
 
-    //     if(status) {
-    //         tasks = tasks.filter(task => task.status === status);
-    //     }
+        // if (search) {
+        //     query.andWhere('(task.title LIKE :search OR task.description LIKE :search)', { search: `%${search}%`}); // % is a wildcard to match anything before or after the search term (which makes search partial)
+        // }
 
-    //     if(search) {
-    //         tasks = tasks.filter(task => 
-    //             task.title.includes(search) ||
-    //             task.description.includes(search),
-    //         );
-    //     }
+        // const tasks = await query.getMany();
+        // return tasks;
 
-    //     return tasks;
-    // }
+        // So we will use a more traditional approach
+        const tasks = await this.taskRepository.find();
+
+        if (status) {
+            return tasks.filter(task => task.status === status);
+        }
+
+        if (search) {
+            return tasks.filter(task => task.title.includes(search) || task.description.includes(search));
+        }
+
+        return tasks;
+    }
 
     async getTaskById(id: string): Promise<Task> {
         const found = await this.taskRepository.findOneBy({ _id: new mongodb.ObjectId(id)});
@@ -47,20 +56,6 @@ export class TasksService {
 
         return found;
     }
-
-    // createTask(createTaskDto: CreateTaskDto): Task {
-    //     const { title, description } = createTaskDto;
-
-    //     const task: Task = {
-    //         id: uuid(),
-    //         title,
-    //         description,
-    //         status: TaskStatus.OPEN,
-    //     };
-
-    //     this.tasks.push(task); // push to the array
-    //     return task;
-    // }
 
     async createTask(createTaskDto: CreateTaskDto): Promise<Task> {
         const {title, description} = createTaskDto;
@@ -76,14 +71,22 @@ export class TasksService {
     }
 
 
-    // updateTaskStatus(id: string, status: TaskStatus): Task {
-    //     const task = this.getTaskById(id); // get the task
-    //     task.status = status;              // update the status
-    //     return task;
-    // }
+    async updateTaskStatus(id: string, status: TaskStatus): Promise<Task> {
+        const task = await this.getTaskById(id);
+        task.status = status;
 
-    // deleteTask(id: string): void {
-    //     const found = this.getTaskById(id);
-    //     this.tasks = this.tasks.filter(task => task.id !== found.id);
-    // }
+        await task.save();
+
+        return task;
+    }
+
+    async deleteTask(id: string): Promise<void> {
+        const result = await this.taskRepository.deleteOne({ _id: new mongodb.ObjectId(id)});
+
+        if (result.deletedCount === 0) {
+            throw new NotFoundException(`Task with ID "${id}" not found`);
+        }
+
+        return;
+    }
 }
