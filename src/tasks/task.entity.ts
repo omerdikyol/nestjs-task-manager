@@ -1,6 +1,7 @@
-import { BaseEntity, Column, Entity, ObjectIdColumn} from "typeorm";
+import { BaseEntity, Column, Entity, ManyToOne, ObjectIdColumn} from "typeorm";
 import { TaskStatus } from "./task-status.enum";
 import { ObjectId } from "mongodb";
+import { User } from "src/auth/user.entity";
 
 @Entity()
 export class Task extends BaseEntity {
@@ -15,4 +16,7 @@ export class Task extends BaseEntity {
 
     @Column()
     status: TaskStatus;
+
+    @Column()
+    userId: ObjectId;
 }

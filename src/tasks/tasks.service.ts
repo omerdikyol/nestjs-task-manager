@@ -7,6 +7,7 @@ import { MongoRepository, Repository } from 'typeorm';
 import { TasksModule } from './tasks.module';
 import { TaskStatus } from './task-status.enum';
 import * as mongodb from 'mongodb';
+import { User } from 'src/auth/user.entity';
 
 @Injectable()
 export class TasksService {
@@ -15,7 +16,10 @@ export class TasksService {
         private taskRepository: MongoRepository<Task>,
     ) {}
 
-    async getTasks(filterDto: GetTasksFilterDto): Promise<Task[]> {
+    async getTasks(
+        filterDto: GetTasksFilterDto,
+        user: User,
+        ): Promise<Task[]> {
         const { status, search } = filterDto;
 
         // QueryBuilder is a way to build queries using a more object-oriented approach
@@ -36,19 +40,25 @@ export class TasksService {
         // So we will use a more traditional approach
         const tasks = await this.taskRepository.find();
 
+        // filter for the specific user.id for MongoDB
+        const filteredTasks = tasks.filter(task => task.userId.equals(user.id));
+
         if (status) {
-            return tasks.filter(task => task.status === status);
+            return filteredTasks.filter(task => task.status === status);
         }
 
         if (search) {
-            return tasks.filter(task => task.title.includes(search) || task.description.includes(search));
+            return filteredTasks.filter(task => task.title.includes(search) || task.description.includes(search));
         }
 
-        return tasks;
+        return filteredTasks;
     }
 
-    async getTaskById(id: string): Promise<Task> {
-        const found = await this.taskRepository.findOneBy({ _id: new mongodb.ObjectId(id)});
+    async getTaskById(
+        id: string,
+        user: User,
+        ): Promise<Task> {
+        const found = await this.taskRepository.findOneBy({ _id: new mongodb.ObjectId(id), userId: user.id });
 
         if (!found) {
             throw new NotFoundException(`Task with ID "${id}" not found`);
@@ -57,22 +67,28 @@ export class TasksService {
         return found;
     }
 
-    async createTask(createTaskDto: CreateTaskDto): Promise<Task> {
+    async createTask(createTaskDto: CreateTaskDto,
+        user: User,
+        ): Promise<Task> {
         const {title, description} = createTaskDto;
 
         const task = new Task();
         task.title = title;
         task.description = description;
         task.status = TaskStatus.OPEN
+        task.userId = user.id;
 
         await task.save();
-        
+
         return task;
     }
 
 
-    async updateTaskStatus(id: string, status: TaskStatus): Promise<Task> {
-        const task = await this.getTaskById(id);
+    async updateTaskStatus(id: string,
+        status: TaskStatus,
+        user: User
+    ): Promise<Task> {
+        const task = await this.getTaskById(id, user);
         task.status = status;
 
         await task.save();
@@ -80,8 +96,11 @@ export class TasksService {
         return task;
     }
 
-    async deleteTask(id: string): Promise<void> {
-        const result = await this.taskRepository.deleteOne({ _id: new mongodb.ObjectId(id)});
+    async deleteTask(
+        id: string,
+        user: User,
+    ): Promise<void> {
+        const result = await this.taskRepository.deleteOne({ _id: new mongodb.ObjectId(id), userId: user.id });
 
         if (result.deletedCount === 0) {
             throw new NotFoundException(`Task with ID "${id}" not found`);
