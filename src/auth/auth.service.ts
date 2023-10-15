@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
 import { MongoRepository } from 'typeorm';
 import { User } from './user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,6 +9,8 @@ import { JwtPayload } from './jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
+    private logger = new Logger('AuthService');
+
     constructor(
         @InjectRepository(User)
         private userRepository: MongoRepository<User>,
@@ -47,8 +49,9 @@ export class AuthService {
         const payload: JwtPayload = { username }; // payload is the data that will be stored in the JWT token
         const accessToken = await this.jwtService.sign(payload);
 
-        return { accessToken };
+        this.logger.debug(`Generated JWT Token with payload ${JSON.stringify(payload)}`);
 
+        return { accessToken };
     }
 
     async validateUserPassword(authCredentialsDto: AuthCredentialsDto): Promise<string> {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { GetTasksFilterDto } from './dto/get-tasks-filter.dto';
 import { Task } from './task.entity';
@@ -11,6 +11,8 @@ import { User } from 'src/auth/user.entity';
 
 @Injectable()
 export class TasksService {
+    private logger = new Logger('TasksService');
+
     constructor(
         @InjectRepository(Task)
         private taskRepository: MongoRepository<Task>,
@@ -34,8 +36,13 @@ export class TasksService {
         //     query.andWhere('(task.title LIKE :search OR task.description LIKE :search)', { search: `%${search}%`}); // % is a wildcard to match anything before or after the search term (which makes search partial)
         // }
 
-        // const tasks = await query.getMany();
-        // return tasks;
+        // try {
+        //     const tasks = await query.getMany();
+        //     return tasks;
+        // } catch(error) {
+        //     this.logger.error(`Failed to get tasks for user "${user.username}. Filters: ${JSON.stringify(filterDto)}"`, error.stack);
+        //     throw new InternalServerErrorException();
+        // }
 
         // So we will use a more traditional approach
         const tasks = await this.taskRepository.find();
@@ -78,7 +85,12 @@ export class TasksService {
         task.status = TaskStatus.OPEN
         task.userId = user.id;
 
-        await task.save();
+        try {
+            await task.save();
+        } catch(error) {
+            this.logger.error(`Failed to create a task for user "${user.username}". Data: ${JSON.stringify(createTaskDto)}`, error.stack);
+            throw new InternalServerErrorException();
+        }
 
         return task;
     }
